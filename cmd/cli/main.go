@@ -23,11 +23,35 @@ func main() {
 			Value:    "",
 			Required: true,
 		},
+		cli.IntFlag{
+			Name:     "vus",
+			Usage:    "Number of virtual users",
+			Value:    10,
+			Required: false,
+		},
+		cli.IntFlag{
+			Name:     "delay",
+			Usage:    "Millisecond delay between http calls",
+			Value:    100,
+			Required: false,
+		},
 		cli.StringFlag{
 			Name:     "headers",
 			Usage:    "Headers of call separated by ','",
 			Value:    "",
 			Required: false,
+		},
+		cli.IntFlag{
+			Name:     "timeout",
+			Usage:    "Timeout for single http call",
+			Value:    60,
+			Required: false,
+		},
+		cli.IntFlag{
+			Name:     "duration",
+			Usage:    "Duration of the test",
+			Value:    0,
+			Required: true,
 		},
 	}
 

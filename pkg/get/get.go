@@ -3,10 +3,14 @@ package get
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
+	"time"
 
 	"github.com/urfave/cli"
 )
+
+var client *http.Client
 
 // HTTPGet is the exported function for load testing
 // Get calls for web services
@@ -18,7 +22,13 @@ func HTTPGet(c *cli.Context) error {
 		return err
 	}
 
-	_ = loadTest(url, headers)
+	timeout := c.Int("timeout")
+
+	vus := c.Int("vus")
+
+	delay := c.Int("delay")
+
+	_, _ = loadTest(url, headers, timeout, vus, delay)
 
 	return nil
 }
@@ -68,6 +78,30 @@ func validateParameters(c *cli.Context) (string, map[string]string, error) {
 }
 
 // Perform the load testing on the service
-func loadTest(url string, headers map[string]string) int {
-	return 0
+func loadTest(url string, headers map[string]string, timeout, vus, delay int) (float64, float64, error) {
+
+	// Create http client used for calls
+	client = &http.Client{
+		Timeout: time.Duration(timeout) * time.Second,
+	}
+
+	// Get Request
+	request, err := http.NewRequest("GET", url, nil)
+
+	if err != nil {
+		return 0, 0, errors.New("")
+	}
+
+	// Apply headers
+	for key, val := range headers {
+		request.Header.Set(key, val)
+	}
+
+	closeChannel := make(chan bool)
+}
+
+// Function that is used with Go routine to target hit service
+func getCall(request http.Request, delay int) {
+
+	time.Sleep(time.Duration(delay) * time.Millisecond)
 }
