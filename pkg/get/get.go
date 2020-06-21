@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/urfave/cli"
@@ -28,7 +29,9 @@ func HTTPGet(c *cli.Context) error {
 
 	delay := c.Int("delay")
 
-	_, _ = loadTest(url, headers, timeout, vus, delay)
+	duration := c.Int("duration")
+
+	_, _ = loadTest(url, headers, timeout, vus, delay, duration)
 
 	return nil
 }
@@ -78,7 +81,7 @@ func validateParameters(c *cli.Context) (string, map[string]string, error) {
 }
 
 // Perform the load testing on the service
-func loadTest(url string, headers map[string]string, timeout, vus, delay int) (float64, float64, error) {
+func loadTest(url string, headers map[string]string, timeout, vus, delay, duration int) (float64, float64, error) {
 
 	// Create http client used for calls
 	client = &http.Client{
@@ -89,7 +92,7 @@ func loadTest(url string, headers map[string]string, timeout, vus, delay int) (f
 	request, err := http.NewRequest("GET", url, nil)
 
 	if err != nil {
-		return 0, 0, errors.New("")
+		return 0, 0, errors.New("Invalid URL passed")
 	}
 
 	// Apply headers
@@ -97,11 +100,49 @@ func loadTest(url string, headers map[string]string, timeout, vus, delay int) (f
 		request.Header.Set(key, val)
 	}
 
-	closeChannel := make(chan bool)
+	var wg sync.WaitGroup
+
+	wg.Add(vus)
+
+	for i := 0; i < vus; i++ {
+		go func() {
+			virtualUser(request, delay, duration)
+			wg.Done()
+		}()
+	}
 }
 
-// Function that is used with Go routine to target hit service
-func getCall(request http.Request, delay int) {
+func virtualUser(request *http.Request, delay int, duration int) {
 
-	time.Sleep(time.Duration(delay) * time.Millisecond)
+	// Create channel to stop virtual user
+	stopChannel := make(chan bool)
+
+	// Run
+	go func() {
+		for {
+			select {
+			case <-stopChannel:
+				break
+			default:
+				getCall(*request)
+				time.Sleep(time.Duration(delay) * time.Millisecond)
+			}
+		}
+	}()
+
+	// Stop virtual user after duration
+	time.AfterFunc(time.Duration(duration)*time.Second, func() {
+		stopChannel <- true
+	})
+}
+
+// Function that is used to call service with request
+func getCall(request http.Request) {
+	req := request
+	resp, err := client.Do(&req)
+	if err != nil {
+		fmt.Println("Request failed")
+	} else {
+		fmt.Println("Status Code: ", resp.StatusCode)
+	}
 }

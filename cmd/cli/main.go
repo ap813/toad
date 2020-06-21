@@ -49,7 +49,7 @@ func main() {
 		},
 		cli.IntFlag{
 			Name:     "duration",
-			Usage:    "Duration of the test",
+			Usage:    "Duration of the test in seconds",
 			Value:    0,
 			Required: true,
 		},
