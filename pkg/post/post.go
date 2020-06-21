@@ -1,6 +1,7 @@
-package get
+package post
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -14,11 +15,11 @@ import (
 
 var client *http.Client
 
-// HTTPGet is the exported function for load testing
+// HTTPPost is the exported function for load testing
 // Get calls for web services
-func HTTPGet(c *cli.Context) error {
+func HTTPPost(c *cli.Context) error {
 
-	url, headers, err := validateParameters(c)
+	url, headers, jsonBytes, err := validateParameters(c)
 
 	if err != nil {
 		return err
@@ -34,21 +35,19 @@ func HTTPGet(c *cli.Context) error {
 
 	debug := c.Bool("debug")
 
-	err = loadTest(url, headers, timeout, vus, delay, duration, debug)
+	err = loadTest(url, jsonBytes, headers, timeout, vus, delay, duration, debug)
 
 	return err
 }
 
 // Valid params from user call to cli
-func validateParameters(c *cli.Context) (string, map[string]string, error) {
+func validateParameters(c *cli.Context) (string, map[string]string, []byte, error) {
 
 	url := c.String("url")
 
 	if len(url) <= 2 {
-		return "", nil, errors.New("'url' too short to be valid")
+		return "", nil, nil, errors.New("'url' too short to be valid")
 	}
-
-	fmt.Println("Calling URL: ", url)
 
 	// Headers stored in map for calls later
 	headersMap := make(map[string]string)
@@ -73,7 +72,7 @@ func validateParameters(c *cli.Context) (string, map[string]string, error) {
 
 			if len(valArray) != 2 {
 				fmt.Println(valArray, len(valArray))
-				return "", nil, errors.New("'headers' had key that didn't correlate to a value")
+				return "", nil, nil, errors.New("'headers' had key that didn't correlate to a value")
 			}
 
 			headersMap[valArray[0]] = valArray[1]
@@ -82,11 +81,19 @@ func validateParameters(c *cli.Context) (string, map[string]string, error) {
 		fmt.Println("Headers:", headersMap)
 	}
 
-	return url, headersMap, nil
+	jsonBody := c.String("body")
+
+	jsonBodyBytes, err := json.Marshal(jsonBody)
+
+	if err != nil {
+		return "", nil, nil, errors.New("Invalid json body passed in")
+	}
+
+	return url, headersMap, jsonBodyBytes, nil
 }
 
 // Perform the load testing on the service
-func loadTest(url string, headers map[string]string, timeout, users, delay, duration int, debug bool) error {
+func loadTest(url string, jsonBytes []byte, headers map[string]string, timeout, users, delay, duration int, debug bool) error {
 
 	// Create http client used for calls
 	client = &http.Client{
@@ -101,7 +108,7 @@ func loadTest(url string, headers map[string]string, timeout, users, delay, dura
 	// Spawn all the virtual users, close worker once finished
 	for i := 0; i < users; i++ {
 		go func() {
-			vus.VirtualUser(client, "GET", url, headers, delay, duration, debug)
+			vus.VirtualUserBody(client, "POST", url, jsonBytes, headers, delay, duration, debug)
 			wg.Done()
 		}()
 	}
